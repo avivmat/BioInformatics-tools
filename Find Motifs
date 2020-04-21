@@ -1,0 +1,137 @@
+from collections import Counter
+
+words = ['cat', 'dog', 'cat']
+counter = Counter()
+
+for word in words:
+    counter[word] += 1
+    
+print('cat', counter['cat'])
+
+for word, count in counter.items():
+    print(word, count)
+    
+    
+from collections import Counter
+
+def freq_words(text, k):
+    result = []
+    max_count = 0
+    
+    #write your code here
+    counter = Counter()
+    lenTxt = len(text) -k +1
+    for i in range(1,lenTxt): 
+        word = text[i:i+k]
+        counter[word] += 1
+        if (max_count<counter[word]):
+            max_count = counter[word]
+    for word in counter:
+        if (counter[word] == max_count):
+            result.append(word)
+    return result, max_count
+    
+    
+assert freq_words('ACGTTGCATGTCGCATGATGCATGAGAGCT', 4) == (['GCAT', 'CATG'], 3)
+
+vibrio_cholerae_oric = '''ATCAATGATCAACGTAAGCTTCTAAGCATGATCAAGGTGCTCACACAGTTTATCCACAAC
+CTGAGTGGATGACATCAAGATAGGTCGTTGTATCTCCTTCCTCTCGTACTCTCATGACCA
+CGGAAAGATGATCAAGAGAGGATGATTTCTTGGCCATATCGCAATGAATACTTGTGACTT
+GTGCTTCCAATTGACATCTTCAGCGCCATATTGCGCTGGCCAAGGTGACGGAGCGGGATT
+ACGAAAGCATGATCATGGCTGTTGTTCTGTTTATCTTGTTTTGACTGAGACTTGTTAGGA
+TAGACGGTTTTTCATCACTGACTAGCCAAAGCCTTACTCTGCCTGACATCGACCGTAAAT
+TGATAATGAATTTACATGCTTCCGCGACGATTTACCTCTTGATCATCGATCCGATTGAAG
+ATCTTCAATTGTTAATTCTCTTGCCTCGACTCATAGCCATGATGAGCTCTTGATCATGTT
+TCCTTAACCCTCTATTTTTTACGGAAGAATGATCAAGCTGCTGCTCTTGATCATCGTTTC'''
+
+assert freq_words(vibrio_cholerae_oric, 9) == (['ATGATCAAG', 'CTCTTGATC', 'TCTTGATCA', 'CTTGATCAT'], 3)
+
+def reversec(pattern):
+    
+    #write your code here 
+    result = []
+    rev = pattern[::-1]
+    
+    lenPat = len(pattern)
+    for i in range(0,lenPat):
+        if(rev[i]=='a'):
+            result.append('t')
+        elif(rev[i]=='A'):
+            result.append('T')
+        elif(rev[i]=='g'):
+            result.append('c')
+        elif(rev[i]=='G'):
+            result.append('C')
+        elif(rev[i]=='c'):
+            result.append('g')
+        elif(rev[i]=='C'):
+            result.append('G')
+        elif(rev[i]=='t'):
+            result.append('a')
+        elif(rev[i]=='T'):
+            result.append('A')
+            
+    return result
+    
+    
+reversec('AAAACCCGGT')
+
+def pattern_matching(pattern, genome):
+    #write your code here
+    indx = []
+    length =  len(genome)-len(pattern)+1
+    for i in range(0,length):
+        if(genome[i:i+len(pattern)] == pattern):
+            indx.append(i)
+    return indx
+    
+    
+pattern_matching('ATAT', 'GATATATGCATATACTT')
+
+vibrio_cholerae_genome = open('Vibrio_cholerae.txt').readlines()[0].strip()
+pattern_matching('ATGATCAAG', vibrio_cholerae_genome)
+
+thermotoga_petrophila_oric = """AACTCTATACCTCCTTTTTGTCGAATTTGTGTGATTTATAGAGAAAATCTTATTAACTGA
+AACTAAAATGGTAGGTTTGGTGGTAGGTTTTGTGTACATTTTGTAGTATCTGATTTTTAA
+TTACATACCGTATATTGTATTAAATTGACGAACAATTGCATGGAATTGAATATATGCAAA
+ACAAACCTACCACCAAACTCTGTATTGACCATTTTAGGACAACTTCAGGGTGGTAGGTTT
+CTGAAGCTCTCATCAATAGACTATTTTAGTCTTTACAAACAATATTACCGTTCAGATTCA
+AGATTCTACAACGCTGTTTTAATGGGCGTTGCAGAAAACTTACCACCTAAAATCCAGTAT
+CCAAGCCGATTTCAGAGAAACCTACCACTTACCTACCACTTACCTACCACCCGGGTGGTA
+AGTTGCAGACATTATTAAAAACCTCATCAGAAGCTTGTTCAAAAATTTCAATACTCGAAA
+CCTACCACCTGCGTCCCCTATTATTTACTACTACTAATAATAGCAGTATAATTGATCTGA"""
+
+print(pattern_matching('ATGATCAAG', thermotoga_petrophila_oric))
+print(pattern_matching('CTTGATCAT', thermotoga_petrophila_oric))
+
+
+assert pattern_matching('ATGATCAAG', thermotoga_petrophila_oric) == []
+assert pattern_matching('CTTGATCAT', thermotoga_petrophila_oric) == []
+
+from collections import Counter
+
+def freq_words2(text, k, c):
+    #write your code here
+    result = []
+    count = 0
+    
+    result1 = freq_words(text,k)
+    result_patterns = result1[0]
+
+    count1 = result1[1]
+    for i in result_patterns:
+        revPattern = reversec(i)
+        revToCheck = ''.join(revPattern)
+        indx = pattern_matching(revToCheck,text)
+        toAdd = len(indx)
+        count2 = toAdd
+        count = count1+count2 
+        if (count>=c):
+            appending = (i,count1,revToCheck,count2,count)
+            result.append(appending)
+    return result
+    
+
+assert freq_words2('ACGTTGCATTCGCATATGATTCATGAGAGCT', 4, 3) == [('ATGA', 2, 'TCAT', 1, 3)]
+
+freq_words2(thermotoga_petrophila_oric, 9, 5)
