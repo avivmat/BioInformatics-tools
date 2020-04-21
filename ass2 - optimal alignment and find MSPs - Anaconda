@@ -1,0 +1,506 @@
+import numpy as np # imports a fast numerical programming library
+
+blosum = []
+keysForLetters = []
+with open('blosum_62.txt', 'r', encoding='utf8')as f:
+    for line in f:
+        if not line.startswith("#") and not line.startswith(" "):
+           blosum.append([int(x) for x in (line.strip().split()[1:])])
+        elif not line.startswith("#"):
+           keysForLetters = line.strip().split()
+#print (blosum)
+mapForIndex = {value: key for (key, value) in enumerate(keysForLetters)}
+
+def optLocAlignment(querry, neighbor):
+    score = 0
+    for indx in range(0,len(querry)-1):
+        letter1 = querry[indx]
+        letter2 = neighbor[indx] 
+        ind1 = mapForIndex[letter1]
+        ind2 = mapForIndex[letter2]
+        blusomVal = blosum[ind1][ind2]
+        score = score + blusomVal  
+    return score
+    
+    
+def optLocAlignment(querry, neighbor):
+    score = 0
+    for indx in range(0,len(querry)-1):
+        letter1 = querry[indx]
+        letter2 = neighbor[indx] 
+        ind1 = mapForIndex[letter1]
+        ind2 = mapForIndex[letter2]
+        blusomVal = blosum[ind1][ind2]
+        score = score + blusomVal  
+    return score
+
+
+def preprocessWmers(fileName, w):
+    wMers = []
+    dBase = []
+    wMerDic = {}
+    with open(fileName, 'r', encoding='utf8')as f:
+        dBase = f.read().split('\n')[1:]
+    text = ''.join(dBase)
+    for i in range(len(text) - w + 1):
+        wMers.append(text[i:i+w])
+        if((text[i:i+w]) in wMerDic):
+            wMerDic[text[i:i+w]].append(i)
+        else:
+            list = []
+            list.append(i)
+            wMerDic[text[i:i+w]] = list
+    return  [wMerDic,text]
+
+
+def finedHits(querry, w, T,dB):
+    wordInd = 0
+    sigmaInd = 0
+    mapForNeighbors = {}
+    count = 0
+    for key in querry.keys():
+        neighbors = []
+        findIndexInRecurtion(key,key,w,wordInd,sigmaInd,neighbors,dB,T)
+        if (len(neighbors) > 0):#if there are no neighbors no need to add an empty list
+            mapForNeighbors.update({key:neighbors})
+            count = count + len(neighbors)
+        #print (count)
+    return [mapForNeighbors,count]
+    
+
+def findIndexInRecurtion(key,neighbor,w,wordInd,sigmaInd,neighbors,dB,T):
+    #print('key = {}'.format(key))
+    if (wordInd == w or sigmaInd == 23):
+        return
+    neighborList = list(neighbor)
+    #print('wordInd = {}'.format(wordInd))
+    #print('sigmaInd = {}'.format(sigmaInd))
+    newChar = keysForLetters[sigmaInd]
+    #print('the new char is = {}'.format(newChar))
+    neighborList[wordInd] = newChar
+    #print('neighborList = {}'.format(neighborList))
+    neighborString = "".join(neighborList)
+    score = optLocAlignment(key,neighborString)
+    if (score >= T):
+        if neighborString in dB: 
+            #print ("neighbor in DB")
+            if not neighborString == key:
+                neighbors.append([neighborString,score])
+                #print ("added neighbor")
+        findIndexInRecurtion(key,neighborString,w,wordInd+1,sigmaInd,neighbors,dB,T)
+        findIndexInRecurtion(key,neighborString,w,wordInd,sigmaInd+1,neighbors,dB,T)
+    else:
+        findIndexInRecurtion(key,neighborString,w,wordInd,sigmaInd+1,neighbors,dB,T)
+        
+        
+def extendHits(RqueryWord,RdBWord,w, X, alighmentScore,querryString ,dbString):
+    #print("exendHits")
+    length = w
+    queryWord = RqueryWord
+    dBWord = RdBWord
+    querryLen = len(querryString)
+    dBLen = len(dbString)
+    maxScore = [alighmentScore, queryWord,dBWord, length]
+    localScore = [alighmentScore, queryWord,dBWord, length]
+    #print ('localScore = {}'.format(localScore[0]))
+    
+    while ((localScore[0] > maxScore[0] - X) and (localScore[3] < querryLen-1)):
+        #print ('iteration number = {}, localScore = {}'.format(iter, localScore[0]))
+        if(localScore[1] == 0 or localScore[2] == 0):
+            if((localScore[1] + localScore[3] -1 >= querryLen) or (localScore[2] + localScore[3] -1 >= dBLen) ):
+                return maxScore
+            score = extendRight(localScore[1],localScore[2],localScore[3],querryString ,dbString)
+            localScore = [localScore[0] + score, localScore[1],localScore[2], localScore[3]+1]
+        
+        elif ((localScore[1] + localScore[3] -1 >= querryLen) or (localScore[2] + localScore[3] -1 >= dBLen )):
+            score = extendLeft(localScore[1],localScore[2],querryString ,dbString)
+            localScore = [localScore[0] + score, localScore[1]-1, localScore[2]-1, localScore[3]+1]
+        
+        else:
+            rightScore = extendRight(localScore[1],localScore[2],localScore[3],querryString ,dbString)
+            leftScore = extendLeft(localScore[1],localScore[2],querryString ,dbString)  
+            
+            if (rightScore > leftScore):
+                localScore = [localScore[0] + rightScore, localScore[1],localScore[2], localScore[3]+1]
+                
+            elif (rightScore < leftScore):
+                localScore = [localScore[0] + leftScore, localScore[1]-1,localScore[2]-1, localScore[3]+1]
+           
+            else:
+                localScore = [localScore[0] + rightScore + leftScore, localScore[1]-1,localScore[2]-1, localScore[3]+2]
+                
+        if (localScore[0] > maxScore[0]):
+            maxScore = localScore
+                
+    return maxScore
+    
+def extendRight(queryWord,dBWord,length,querryString ,dbString):
+    qChar = querryString[queryWord+length-1]
+    dBChar = dbString[dBWord+length-1]
+    score = blosum[mapForIndex[qChar]][mapForIndex[dBChar]]
+    return score
+    
+
+def extendLeft(queryWord,dBWord,querryString ,dbString):
+    qChar = querryString[queryWord-1]
+    dBChar = dbString[dBWord-1]
+    score = blosum[mapForIndex[qChar]][mapForIndex[dBChar]]
+    return score
+    
+
+def bestHSP(HSP):
+    quant = 3
+    MSP = []
+    #print('HSPLen = {}'.format(len(HSP)))
+    MSP.append(HSP[0])
+    i = 1
+    while (quant > 1 and i < len(HSP)):
+        tmp = HSP [i]
+        if (notContained(tmp,MSP)):
+            MSP.append(tmp)
+            quant= quant-1
+        i=i+1
+    return MSP
+    
+
+def notContained(tmp,MSP):
+    # maxScore = [alighmentScore, queryWord,dBWord, length]
+    flag = True
+    for i in range (len(MSP)):
+        endIndMSP =  MSP[i][1]+MSP[i][3]
+        endIndTmp = tmp[1]+tmp[3]
+        if (tmp[1]>= MSP[i][1] and (endIndTmp <= endIndMSP)):
+            return False         
+    return flag
+    
+
+def numOfNeighbors (querryFile, dBFile, w, T):
+    dBRes = preprocessWmers(querryFile, w)
+    dB= dBRes[0]
+    dbString = dBRes[1]
+    querryRes = preprocessWmers(querryFile, w)
+    querry = querryRes[0]
+    querryString  = querryRes[1]
+    result = finedHits(querry,w,T,dB)
+    count = result[1]
+    return count
+    
+    
+def blast (querryFile, dBFile, w, T, X):
+
+    dBRes = preprocessWmers(dBFile, w)
+    dB= dBRes[0]
+    #print('dbLen = {}'.format(len(dB)))
+    dbString = dBRes[1]
+    #print('dbLen = {}'.format(len(dbString)))
+    querryRes = preprocessWmers(querryFile, w)#returns [map,string]
+    querry = querryRes[0]#map of all wmers
+    #print('querryLen = {}'.format(len(querry)))
+    querryString  = querryRes[1]
+    #print('querryLen = {}'.format(len(querryString)))
+    result = finedHits(querry,w,T,dB)#returnt[map,counter]
+    neighborsMap = result[0]
+    #print('neighborsMap size = {}'.format(len(neighborsMap)))
+    count = result[1]
+    #print(count)
+    HSP = []
+    for key in neighborsMap.keys():
+        #print(key)
+        neighbors = neighborsMap[key]#list of all the neighbors of key[neighbor string,score]
+        #print(neighbors)
+        for i in range(len(neighbors)):#go over all the neighbors
+            querryIdxs = querry[key]# array of all the indexs that the w mer is appearing
+            dBIdxs = dB[neighbors[i][0]]# all the indexs the neighbor is appiring
+            scoreSoFar = neighbors[i][1]
+            for queryWord in querryIdxs:
+                for dBWord in dBIdxs:
+                    result = extendHits(queryWord,dBWord,w, X, scoreSoFar,querryString ,dbString)
+                    HSP.append(result)
+    #print('HSP size = {}'.format(len(HSP)))
+    HSP.sort(reverse = True)
+    return bestHSP(HSP)
+    
+    
+#part 2.1
+import numpy as np # imports a fast numerical programming library
+import matplotlib.pyplot as plt #sets up plotting under plt
+
+x = [5,10,15] # different values of T
+y = [] # number of neighbors
+for T in x:
+    
+    numNeighbors = numOfNeighbors ('query1.fasta', 'db1.fasta', 3, T)
+   # print (numNeighbors)
+    y.append(numNeighbors)
+
+    
+#print(x[0], y[0])
+#print(x[1], y[1])
+#print(x[2], y[2])
+
+plt.title('Number of neighbors as function of T')
+plt.ylabel('num of neighbors')
+plt.xlabel('T value')
+plt.plot(x, y, 'r') # plotting t, a separately 
+plt.show()
+
+
+
+#part 2.2
+import numpy as np # imports a fast numerical programming library
+import matplotlib.pyplot as plt #sets up plotting under plt
+import time
+
+results =[]
+t = [5,10,15] # different values of T
+w = [3,4,5] # different values of W
+x = [10,12,14] # different values of X
+
+for T in t:
+    for W in w:
+        for X in x:
+            start = time.time()
+            bestHSPs = blast ('query1.fasta', 'db1.fasta', W, T, X)
+            end = time.time()
+            runing = (end - start)/60
+            results.append([runing,[W,T,X]])
+            #print('running time : {} minutes'.format(runing))
+
+print(results)
+
+
+#part 2.2
+#[runing,[W,T,X]]
+import matplotlib.pyplot as plt #sets up plotting under plt
+
+arr =[[0.7598577499389648, [3, 5, 10]],
+      [0.9775579770406088, [3, 5, 12]], 
+      [1.4840326984723409, [3, 5, 14]], 
+      [0.6198066393534343, [4, 5, 10]], 
+      [0.548039956887563, [4, 5, 12]],
+      [0.6405365665753683, [4, 5, 14]], 
+      [1.1270073175430297, [5, 5, 10]], 
+      [1.1529250661532084, [5, 5, 12]], 
+      [1.182256531715393, [5, 5, 14]], 
+      [0.0639867901802063, [3, 10, 10]], 
+      [0.07241834004720052, [3, 10, 12]], 
+      [0.09242971340815226, [3, 10, 14]], 
+      [0.08284885088602702, [4, 10, 10]], 
+      [0.07655181884765624, [4, 10, 12]], 
+      [0.08593451579411825, [4, 10, 14]], 
+      [0.2925072908401489, [5, 10, 10]], 
+      [0.28256479104359944, [5, 10, 12]], 
+      [0.3067804257074992, [5, 10, 14]], 
+      [0.0070318182309468584, [3, 15, 10]], 
+      [0.008243827025095622, [3, 15, 12]], 
+      [0.007225509484608968, [3, 15, 14]], 
+      [0.011970241864522299, [4, 15, 10]], 
+      [0.015050872166951498, [4, 15, 12]], 
+      [0.013098820050557455, [4, 15, 14]], 
+      [0.058951270580291745, [5, 15, 10]], 
+      [0.069757612546285, [5, 15, 12]], 
+      [0.07387611865997315, [5, 15, 14]]]
+
+arr.sort (key=lambda arr: arr[0])
+#arr.sort (key = lambda arr : arr[1][0])
+#arr.sort (key = lambda arr: arr [1][1])
+#arr.sort (key = lambda arr:arr[1][2])
+
+w = {3: 0.0070318182309468584, 4: 0.011970241864522299,5: 0.058951270580291745}
+t = {5: 0.548039956887563, 10: 0.0639867901802063, 15:0.0070318182309468584}
+x = {10:0.0070318182309468584, 12:0.008243827025095622, 14: 0.007225509484608968}
+
+    
+plt.title('running time as a function of w')
+plt.ylabel('running time')
+plt.xlabel('w value')
+plt.plot(w.keys(), w.values(), 'r') # plotting running time as a function of w 
+plt.show()
+
+plt.title('running time as a function of T')
+plt.ylabel('running time')
+plt.xlabel('T value')
+plt.plot(t.keys(), t.values(), 'r') # plotting running time as a function of t 
+plt.show()
+
+plt.title('running time as a function of X')
+plt.ylabel('running time')
+plt.xlabel('X value')
+plt.plot(x.keys(), x.values(), 'r') # plotting running time as a function of x 
+plt.show()
+
+    
+    
+#part 2.3
+import numpy as np # imports a fast numerical programming library
+import matplotlib.pyplot as plt #sets up plotting under plt
+
+import time
+
+start = time.time()
+
+bestHSPs = blast ('query1.fasta', 'db1.fasta', 3, 15,14)
+
+end = time.time()
+runing = (end - start)/60
+print('running time : {} minutes'.format(runing))
+print(bestHSPs)
+
+
+#from ass 1
+
+import numpy as np # imports a fast numerical programming library
+
+class OptLocAlignment:
+    
+    def __init__(self, s1, s2):
+        self.bestScore = 0
+        self.bestScoreIndx = [0][0]
+        self.string1 = s1 #columns
+        self.string2 = s2 #rows
+        self.str1Len = len(self.string1)
+        self.str2Len = len(self.string2)
+        self.alignment = [[0 for i in range(self.str2Len+1)] for j in range(self.str1Len+1)] 
+        #print(self.alignment)
+    
+    def calcAlignment(self):
+        #print('bestScore is = {}'.format(self.bestScoreIndx))
+        gapScore = blosum[2][-1:][0]
+        for i in range(1,self.str1Len+1):
+            for j in range(1,self.str2Len+1):
+                ind1 = mapForIndex[self.string1[i-1]]
+                ind2 = mapForIndex[self.string2[j-1]]
+                alignScore = blosum[ind1][ind2]
+                gapIn1 = self.alignment[i-1][j] + gapScore
+                gapIn2 = self.alignment[i][j-1] + gapScore
+                noGap = self.alignment[i-1][j-1] + alignScore
+                self.alignment[i][j] = max( gapIn1, gapIn2,noGap,0)
+        self.bestScore = np.amax(self.alignment)
+        self.bestScoreIndx = np.where(self.alignment == self.bestScore)
+    
+    def trackAlignment(self):
+        gapScore = blosum[2][-1:][0]
+        recStr1 = ['']
+        recStr2 = ['']
+        bestScoreInd1 = 0
+        bestScoreInd2 = 0
+        if(len(self.bestScoreIndx[0])>1):
+            bestScoreInd1 = self.bestScoreIndx[0][0]
+            bestScoreInd2 = self.bestScoreIndx[1][0]
+        else:
+            bestScoreInd1 = self.bestScoreIndx[0]
+            bestScoreInd2 = self.bestScoreIndx[1]
+        indi = int(bestScoreInd1)
+        indy = int(bestScoreInd2)
+        score = int(self.bestScore)
+        while (score > 0):
+            letter1 = self.string1[int(indi)-1]
+            ind1 = mapForIndex[letter1]
+            letter2 = self.string2[int(indy)-1]
+            ind2 = mapForIndex[letter2]
+            alignScore = blosum[ind1][ind2]
+            if ((score - alignScore) == self.alignment[indi-1][indy-1]):
+                score = score - alignScore
+                recStr1.append(letter1)
+                recStr2.append(letter2)
+                indi-=1
+                indy-=1
+            elif((score - gapScore) == self.alignment[indi-1][indy]):
+                score = score - gapScore
+                recStr1.append(letter1)
+                recStr2.append('_')
+                indi-=1
+            elif((score - gapScore) == self.alignment[indi][indy-1]):
+                score = score - gapScore
+                recStr1.append('_')
+                recStr2.append(letter2)
+                indy-=1
+        recStr1.reverse()
+        recStr2.reverse()
+        #print(''.join(recStr1)) 
+        #print(''.join(recStr2))
+        #print('score = {}'.format(self.bestScore))
+        #print('query ({}, {})'.format(indi,int(self.bestScoreIndx[0])))
+        #print('db ({}, {})'.format(indy,int(self.bestScoreIndx[1])))
+        
+        #query, db
+        return [[indi,int(bestScoreInd1)], [indy,int(bestScoreInd2)]]
+        
+        
+def findAligInd(query, db):
+    #print('enter to find')
+    locAl0 =  OptLocAlignment(query, db)
+    locAl0.calcAlignment()
+    result = locAl0.trackAlignment()
+    return result
+    
+    
+def removeInDb(string, indexes):
+    stringList = list(string)
+    stringBe = "".join(stringList[:indexes[0]])
+    stringAf = "".join(stringList[indexes[1]:])
+    stringUnited = stringBe + stringAf
+    #print('len of string united is = {}'.format(len(stringUnited)))
+    return stringUnited
+
+
+#part 3.1
+with open('query2.fasta', 'r', encoding='utf8') as f:
+    lines = [f.read().split('\n')]
+lines1 = lines[0][1:]
+query = "".join(lines1)
+
+with open('db2.fasta', 'r', encoding='utf8') as f:
+    lines = [f.read().split('\n')]
+lines2 = lines[0][1:]
+db = "".join(lines2)
+
+#deletedInd = []
+homologInDb = []
+dbTmp = db
+howMuchWasDeletedInDb = 0
+
+for i in range(0,3):
+    resultInd = findAligInd(query, dbTmp)
+    #print('resultInd = {} '.format(resultInd))
+    dbTmp = removeInDb(dbTmp,resultInd[1])
+    #deletedInd.append(resultInd[1])
+    
+    #print('how much deleted = {}'.format(howMuchWasDeletedInDb))
+    if (i==0):
+        homologInDb.append(resultInd)
+    elif(i>0 and i<3):
+        indexInDb = resultInd[1]
+        
+        #realIndexStart = int(homologInDb[i-1][1][0])
+        #realIndexEnd = lastIndex[1] + howMuchWasDeletedInDb
+        realIndex = resultInd
+        realIndex[1][0] = realIndex[1][0] + howMuchWasDeletedInDb
+        realIndex[1][1] = realIndex[1][1] + howMuchWasDeletedInDb
+        #print([deletedInd[i-1][0]+howMuchWasDeletedInDb, deletedInd[i-1][1]+howMuchWasDeletedInDb])
+        homologInDb.append(realIndex)
+        #print('real index = {}'.format(realIndex))
+        #print([realIndexStart, realIndexEnd])
+    
+    howMuchWasDeletedInDb = resultInd[1][1]-resultInd[1][0] + howMuchWasDeletedInDb  
+#print('final')
+print('3 homologs of the query in the database: [indexed in querry, indexes in db]')
+print(homologInDb)
+
+
+#part 3.2 
+import numpy as np # imports a fast numerical programming library
+import matplotlib.pyplot as plt #sets up plotting under plt
+
+import time
+
+start = time.time()
+
+bestHSPs = blast ('query2.fasta', 'db2.fasta', 3, 10, 30)
+
+end = time.time()
+runing = (end - start)/60
+print('running time : {} minutes'.format(runing)) 
+print ('top scoring MSPs (without duplicates): [score, start ind in querry, start ind in db, lenght]')
+print(bestHSPs)
+    
