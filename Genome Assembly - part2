@@ -1,0 +1,261 @@
+import networkx as nx
+from IPython.display import Image
+
+
+def create_graph(nodes, edges):
+    graph = nx.MultiDiGraph()
+    graph.add_nodes_from(nodes)
+    graph.add_edges_from(edges)
+    
+    return graph
+    
+    
+def composition(text, k):
+    kmers = []
+    for i in range(len(text) - k + 1):
+        kmers.append(text[i:i+k])
+    return kmers
+    
+    
+def debruijn(kmers):
+    graph = nx.MultiDiGraph()
+
+    for kmer in kmers:
+        kmer_perfix = kmer[:-1]
+        kmer_suffix = kmer[1:]
+
+        graph.add_edge(kmer_perfix, kmer_suffix)
+    
+    return graph
+    
+    
+from IPython.display import Image
+
+def draw_graph(g):
+    d = nx.drawing.nx_pydot.to_pydot(g)
+
+    png_str = d.create_png()
+    img = Image(data=png_str)
+    display(img)
+    
+    
+def eulerize(graph):
+    """
+    Adds an edge between two nodes in order to create an euler cycle
+    
+    Args:
+        graph: a graph with an Euler path
+
+    Returns:
+        The starting node of an eulerian path
+    """
+    
+    left_node = -1
+    right_node = -1
+    for node in graph.nodes:
+        if graph.out_degree(node) > graph.in_degree(node):
+            right_node = node
+        elif graph.out_degree(node) < graph.in_degree(node):
+            left_node = node
+            
+    if left_node != -1 and right_node != -1:
+        graph.add_edge(left_node, right_node)
+        
+    return right_node
+    
+    
+def path_to_genome(kmers):
+    """Concatanates a list of kmers to a string"""
+    text = kmers[0]
+    for kmer in kmers[1:]:
+        text += kmer[-1]
+        
+    return text       
+    
+
+def get_euler_cycle_nodes(graph, src_node):
+    """
+    Finds an euler path in a graph
+    
+    Args:
+        graph: a graph with an Euler path
+
+    Returns:
+        The nodes of an eulerian path
+    """
+    cycle = nx.eulerian_circuit(graph, source=src_node)
+    cycle_nodes = [e[0] for e in cycle]
+    
+    return cycle_nodes
+    
+    
+def get_euler_path(graph):
+    """Returns an euler path """
+    src_node = eulerize(graph)
+    nodes = get_euler_cycle_nodes(graph, src_node)
+
+    return nodes
+    
+    
+def debruijn_from_read_pairs(read_pairs):
+    
+    graph = nx.MultiDiGraph()
+    
+    for kmer in read_pairs:
+        out_perfix = kmer[0][:-1]
+        out_suffix = kmer[1][:-1]
+        in_prefix = kmer[0][1:]
+        in_sufix = kmer[1][1:]
+        graph.add_edge((out_perfix,out_suffix), (in_prefix,in_sufix))
+        
+    return graph
+    
+    
+read_pairs = [('GAGA', 'TTGA'), ('TCGT', 'GATG'), ('CGTG', 'ATGT'), ('TGGT', 'TGAG'), ('GTGA', 'TGTT'), ('GTGG', 'GTGA'), 
+              ('TGAG', 'GTTG'), ('GGTC', 'GAGA'), ('GTCG', 'AGAT')]
+k = 4
+d = 2
+
+graph = debruijn_from_read_pairs(read_pairs)
+draw_graph(graph)
+
+
+def read_pairs_path_to_genome(kmer_pairs, k, d):
+    """
+    Reconstructs a genome from a path of read pairs
+    
+    Args:
+        kmer_pairs: a list of read pairs that form a path in a debruijn graph
+
+    Returns:
+        A genome represented by the path if exists, else an empty string
+    """
+    
+    text1 = kmer_pairs[0][0]
+    text2 = kmer_pairs[0][1]
+    for kmer in kmer_pairs[1:]:
+        text1 += kmer[0][-1]
+        text2 += kmer[1][-1]
+    genome = text1 + text2[-(k+d):]
+    return genome
+    
+    
+read_pairs = [('GAGA', 'TTGA'), ('TCGT', 'GATG'), ('CGTG', 'ATGT'), ('TGGT', 'TGAG'), ('GTGA', 'TGTT'), ('GTGG', 'GTGA'), 
+              ('TGAG', 'GTTG'), ('GGTC', 'GAGA'), ('GTCG', 'AGAT')]
+k = 4
+d = 2
+
+graph = debruijn_from_read_pairs(read_pairs)
+path = get_euler_path(graph)
+
+assert 'GTGGTCGTGAGATGTTGA' == read_pairs_path_to_genome(path, k, d)
+
+
+nodes = list(range(1, 8))
+edges = [(1, 1), (1, 2), (2, 3), (3, 4), (3, 4), (3, 5), (6, 7), (7, 6)]
+
+graph = create_graph(nodes, edges)
+
+#get the neighbors of a node
+print(list(graph.neighbors(3)))
+
+#get the number of edges between two nodes
+print(len(graph.get_edge_data(3, 4)))
+
+
+def max_non_branching_paths(graph):
+    """
+    Finds non branching paths in a graph, including isolated cycles
+    
+    Args:
+        graph: a debruijn graph
+
+    Returns:
+        A list of paths, each path is a list
+    """
+    paths = []
+    
+    for node in graph.nodes:
+        path = [node]
+        neighbors = list(graph.neighbors(node))
+        while(neighbors == 1):
+            path.append(neighbors[0])
+            neighbors = list(graph.neighbors(neighbors[0]))
+        for neighbor in neighbors:
+            paths.append(path + neighbors[0])
+               
+    return paths
+    
+    
+nodes = list(range(1, 8))
+edges = [(1, 1), (1, 2), (2, 3), (3, 4), (3, 4), (3, 5), (6, 7), (7, 6)]
+
+graph = create_graph(nodes, edges)
+paths = max_non_branching_paths(graph)
+
+expected_paths = [[6, 7, 6],
+[3, 5],
+[1, 1],
+[1, 2, 3],
+[3, 4],
+[3, 4]
+]
+
+paths_str = [' '.join([str(node) for node in path]) for path in paths]
+expected_paths_str = [' '.join([str(node) for node in path]) for path in expected_paths]
+
+assert sorted(expected_paths_str) == sorted(paths_str)
+
+
+patterns = ['ATG',
+'ATG',
+'TGT',
+'TGG',
+'CAT',
+'GGA',
+'GAT',
+'AGA']
+
+def get_cotings(patterns):
+    graph = debruijn(patterns)
+    paths = max_non_branching_paths(graph)
+    
+    return [path_to_genome(path) for path in paths]
+    
+    
+assert set(get_cotings(patterns)) == set(['AGA', 'ATG', 'ATG', 'CAT', 'GAT', 'TGGA', 'TGT'])
+
+def get_contigs_from_read_pairs(read_pairs, k, d):
+    
+    #write your code here
+    
+    return contigs
+    
+    
+k = 2
+d = 1
+read_pairs = [('TC', 'GT'),  
+('CA', 'TT'),  
+('AG', 'TA'),  
+('GA', 'TG'),  
+('AC', 'GC'),  
+('CT', 'CA')]
+
+expected_contigs = ['GACTGCA', 'TCAGTTA']
+
+contigs = get_contigs_from_read_pairs(read_pairs, k, d)
+
+assert sorted(contigs) == expected_contigs
+
+
+k = 100
+d = 500
+
+read_pairs = []
+with open('read_pairs.txt') as f:
+    for line in f:
+        read_pairs.append(tuple(line.strip().split('|')))
+        
+#create contigs from read pairs
+#create contigs from regular reads
+    
