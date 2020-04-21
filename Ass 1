@@ -1,0 +1,138 @@
+import numpy as np # imports a fast numerical programming library
+import matplotlib.pyplot as plt
+import time
+import matplotlib.pyplot as plt
+import pandas as pd
+
+blosum = []
+keysForLetters = []
+with open('blosum_62.txt', 'r', encoding='utf8')as f:
+    for line in f:
+        if not line.startswith("#") and not line.startswith(" "):
+           blosum.append([int(x) for x in (line.strip().split()[1:])])
+        elif not line.startswith("#"):
+           keysForLetters = line.strip().split()
+
+mapForIndex= {value: key for (key, value) in enumerate(keysForLetters)}
+
+
+class OptLocAlignment:
+    
+    def __init__(self, s1, s2):
+        self.bestScore = 0
+        self.bestScoreIndx = [0][0]
+        self.string1 = s1 #columns
+        self.string2 = s2 #rows
+        self.str1Len = len(self.string1)
+        self.str2Len = len(self.string2)
+        self.alignment = [[0 for i in range(self.str2Len+1)] for j in range(self.str1Len+1)] 
+        #print(self.alignment)
+    
+    def calcAlignment(self):
+        gapScore = blosum[2][-1:][0]
+        for i in range(1,self.str1Len+1):
+            for j in range(1,self.str2Len+1):
+                ind1 = mapForIndex[self.string1[i-1]]
+                ind2 = mapForIndex[self.string2[j-1]]
+                alignScore = blosum[ind1][ind2]
+                gapIn1 = self.alignment[i-1][j] + gapScore
+                gapIn2 = self.alignment[i][j-1] + gapScore
+                noGap = self.alignment[i-1][j-1] + alignScore
+                self.alignment[i][j] = max( gapIn1, gapIn2,noGap,0)
+        self.bestScore = np.amax(self.alignment)
+        self.bestScoreIndx = np.where(self.alignment == self.bestScore)
+    def trackAlignment(self):
+        gapScore = blosum[2][-1:][0]
+        recStr1 = ['']
+        recStr2 = ['']
+        indi = int(self.bestScoreIndx[0])
+        indy = int(self.bestScoreIndx[1])
+        score = int(self.bestScore)
+        while (score > 0):
+            letter1 = self.string1[int(indi)-1]
+            #ind1 = blosum62[0].index(letter1)
+            ind1 = mapForIndex[letter1]
+            letter2 = self.string2[int(indy)-1]
+            #ind2 = blosum62[0].index(letter2)
+            ind2 = mapForIndex[letter2]
+            #alignScore = int(blosum62[ind1+1][ind2+1])
+            alignScore = blosum[ind1][ind2]
+            if ((score - alignScore) == self.alignment[indi-1][indy-1]):
+                score = score - alignScore
+                recStr1.append(letter1)
+                recStr2.append(letter2)
+                indi-=1
+                indy-=1
+            elif((score - gapScore) == self.alignment[indi-1][indy]):
+                score = score - gapScore
+                recStr1.append(letter1)
+                recStr2.append('_')
+                indi-=1
+            elif((score - gapScore) == self.alignment[indi][indy-1]):
+                score = score - gapScore
+                recStr1.append('_')
+                recStr2.append(letter2)
+                indy-=1
+        recStr1.reverse()
+        recStr2.reverse()
+        print(''.join(recStr1)) 
+        print(''.join(recStr2))
+        print('score = {}'.format(self.bestScore))
+        print('s1 ({}, {})'.format(indi,int(self.bestScoreIndx[0])))
+        print('s2 ({}, {})'.format(indy,int(self.bestScoreIndx[1])))
+        
+ 
+start = time.time()
+
+#s1 = 'YVEGLKMF'  
+#s2 = 'ELGLMBAR'
+#locAl =  OptLocAlignment(s1,s2)
+#locAl.calcAlignment()
+#locAl.trackAlignment()
+with open('seq1.fasta', 'r', encoding='utf8') as f:
+   lines = [f.read().split('\n')]
+lines1 = lines[0][1:]
+string1 = "".join(lines1)
+with open('seq2.fasta', 'r', encoding='utf8') as f:
+    lines = [f.read().split('\n')]
+lines2 = lines[0][1:]
+string2 = "".join(lines2)
+locAl =  OptLocAlignment(string1,string2)
+locAl.calcAlignment()
+locAl.trackAlignment()
+
+end = time.time()
+runing = (end - start)/60
+print('running time : {} minutes'.format(runing))
+
+print('\n'.join(['E_GLKM','ELGL_M','score = 12','s1 (2, 7)','s2 (0, 5)']))
+
+print(s1[2:7])
+print(s2[0:5])
+
+def start:
+  with open('seq1.fasta', 'r', encoding='utf8') as f:
+   lines = [f.read().split('\n')]
+  line1 = lines[0][1:]
+  str1 = "".join(lines1)
+  locAll =  OptLocAlignment(str1,str1)
+  locAll.calcAlignment()
+  locAll.trackAlignment()
+
+
+%matplotlib inline 
+matrix = locAl.alignment
+#matrix = [[1, 0, 5],[5, 6, 20],[0, 17, 0]]
+plt.figure(figsize=(18,3))
+plt.imshow(matrix, aspect='auto', cmap='inferno')
+plt.xlabel('Data Base')
+plt.ylabel('Query')
+
+with open('seq2.fasta', 'r', encoding='utf8') as f:
+    lines = [f.read().split('\n')]
+lines2 = lines[0][1:]
+string2 = "".join(lines2)
+ind1 = int(2999)
+ind2 = int(4352)
+print(string2[ind1:ind2])
+
